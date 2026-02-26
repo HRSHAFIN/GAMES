@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Water Sorting Master</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .game-wrapper {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #1e3c72;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 15px 25px;
+            background: rgba(46, 60, 114, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        .game-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 25px;
+            background: #f5f7fa;
+            border-radius: 15px;
+            position: relative;
+            transition: all 0.5s ease;
+            min-height: 280px;
+        }
+
+        .tube {
+            width: 70px;
+            height: 240px;
+            border: 3px solid #2c3e50;
+            border-top: none;
+            border-radius: 0 0 15px 15px;
+            background: linear-gradient(to bottom, #dfe4ea, #ffffff);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .tube:hover {
+            border-color: #3498db;
+            transform: translateY(-5px) rotate(3deg);
+        }
+
+        .tube.selected {
+            border-color: #27ae60;
+            box-shadow: 0 0 20px rgba(39,174,96,0.7);
+            transform: scale(1.06);
+            animation: pulse 0.6s infinite alternate;
+            z-index: 5;
+        }
+
+        .water {
+            width: 100%;
+            height: 60px;
+            position: absolute;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            background-size: 200% 200%;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .water-surface {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.3);
+            animation: waveMotion 1.5s ease-in-out infinite;
+        }
+
+        .water.pouring {
+            z-index: 10;
+            animation: liquidPour 1.2s ease-out forwards;
+        }
+
+        .water.settling {
+            animation: settleWave 0.8s ease-out;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .new-game { background: #3498db; }
+        .new-game:hover { background: #2980b9; transform: scale(1.1) rotate(4deg); }
+        .undo { background: #e67e22; }
+        .undo:hover { background: #d35400; transform: scale(1.1) rotate(4deg); }
+        .difficulty-btn { background: #8e44ad; }
+        .difficulty-btn:hover { background: #6c3483; transform: scale(1.1) rotate(4deg); }
+        .hint { background: #f1c40f; }
+        .hint:hover { background: #d4ac0d; transform: scale(1.1) rotate(4deg); }
+
+        .message {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 20px 0;
+            min-height: 32px;
+            color: #27ae60;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .message.win {
+            animation: winCelebrate 1.5s infinite;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .win-modal {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            color: #2c3e50;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            animation: modalPop 0.4s ease-out;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1.06); } 100% { transform: scale(1.1); } }
+        @keyframes liquidPour {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            30% { transform: translateY(-80px) scale(0.8, 1.2); opacity: 0.9; } /* Rise and stretch */
+            60% { transform: translateY(-40px) translateX(calc(var(--direction) * 40px)) scale(0.6, 1.4); opacity: 0.8; } /* Curve towards destination */
+            100% { transform: translateY(var(--drop-distance)) translateX(calc(var(--direction) * 80px)) scale(1); opacity: 1; } /* Drop into tube */
+        }
+        @keyframes waveMotion {
+            0% { clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); transform: skewX(0deg); }
+            25% { clip-path: polygon(0 45%, 100% 55%, 100% 100%, 0 100%); transform: skewX(5deg); }
+            50% { clip-path: polygon(0 55%, 100% 45%, 100% 100%, 0 100%); transform: skewX(-5deg); }
+            75% { clip-path: polygon(0 48%, 100% 52%, 100% 100%, 0 100%); transform: skewX(3deg); }
+            100% { clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); transform: skewX(0deg); }
+        }
+        @keyframes settleWave {
+            0% { transform: translateY(10px) scaleY(0.9); }
+            50% { transform: translateY(-5px) scaleY(1.05); }
+            100% { transform: translateY(0) scaleY(1); }
+        }
+        @keyframes winCelebrate { 0% { transform: scale(1) rotate(0deg); } 25% { transform: scale(1.2) rotate(5deg); } 50% { transform: scale(1.15) rotate(-5deg); } 75% { transform: scale(1.2) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); } }
+        @keyframes resetFade { 0% { opacity: 1; transform: scale(1) rotate(0deg); } 50% { opacity: 0; transform: scale(0.85) rotate(5deg); } 100% { opacity: 1; transform: scale(1) rotate(0deg); } }
+        @keyframes tubeEnter { from { opacity: 0; transform: translateY(30px) rotate(10deg); } to { opacity: 1; transform: translateY(0) rotate(0deg); } }
+        @keyframes modalPop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="header">
+            <h1>Water Sorting Master</h1>
+        </div>
+        <div class="stats">
+            <span id="moves">Moves: 0</span>
+            <span id="score">Score: 0</span>
+            <span id="difficulty">Difficulty: Medium</span>
+            <span id="hints">Hints: 3</span>
+        </div>
+        <div class="message" id="message"></div>
+        <div class="game-container" id="gameContainer"></div>
+        <div class="controls">
+            <button class="new-game" onclick="resetGame()">New Game</button>
+            <button class="undo" onclick="undoMove()">Undo</button>
+            <button class="difficulty-btn" onclick="toggleDifficulty()">Change Difficulty</button>
+            <button class="hint" onclick="useHint()">Hint</button>
+        </div>
+        <div class="overlay" id="winOverlay">
+            <div class="win-modal">
+                <h2>Congratulations!</h2>
+                <p id="winStats"></p>
+                <button class="new-game" onclick="resetGame(); hideWinModal();">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const colorsList = ['#ff4444', '#4444ff', '#44ff44', '#ffff44', '#ff44ff', '#ff69b4', '#00ced1', '#ffa500', '#9932cc', '#20b2aa', '#e74c3c', '#3498db', '#2ecc71'];
+        const difficulties = {
+            novice: { tubes: 3, colors: 2, hints: 5 },
+            beginner: { tubes: 4, colors: 3, hints: 4 },
+            easy: { tubes: 6, colors: 4, hints: 3 },
+            medium: { tubes: 8, colors: 6, hints: 3 },
+            hard: { tubes: 10, colors: 8, hints: 2 },
+            expert: { tubes: 12, colors: 10, hints: 2 },
+            master: { tubes: 14, colors: 11, hints: 1 },
+            insane: { tubes: 16, colors: 13, hints: 1 }
+        };
+        const waterHeight = 60;
+        const ballsPerTube = 4;
+        let tubes = [];
+        let selectedTube = null;
+        let moveCount = 0;
+        let score = 0;
+        let moveHistory = [];
+        let isAnimating = false;
+        let currentDifficulty = 'medium';
+        let hintsRemaining = difficulties[currentDifficulty].hints;
+
+        function initGame() {
+            tubes = [];
+            const allWaters = [];
+            moveCount = 0;
+            score = 0;
+            moveHistory = [];
+            hintsRemaining = difficulties[currentDifficulty].hints;
+            
+            const { tubes: tubeCount, colors: colorCount } = difficulties[currentDifficulty];
+            const colors = colorsList.slice(0, colorCount);
+
+            colors.forEach(color => {
+                for(let i = 0; i < ballsPerTube; i++) {
+                    allWaters.push(color);
+                }
+            });
+
+            for(let i = allWaters.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allWaters[i], allWaters[j]] = [allWaters[j], allWaters[i]];
+            }
+
+            for(let i = 0; i < tubeCount - 2; i++) {
+                tubes.push(allWaters.slice(i * ballsPerTube, (i + 1) * ballsPerTube));
+            }
+            tubes.push([]);
+            tubes.push([]);
+
+            renderGame(true);
+            updateStats();
+        }
+
+        function renderGame(animateEntry = false) {
+            const container = document.getElementById('gameContainer');
+            container.innerHTML = '';
+
+            tubes.forEach((tube, index) => {
+                const tubeElement = document.createElement('div');
+                tubeElement.className = 'tube';
+                tubeElement.dataset.index = index;
+                
+                tube.forEach((color, waterIndex) => {
+                    const water = document.createElement('div');
+                    water.className = 'water';
+                    water.style.background = `linear-gradient(to bottom, ${color}, ${adjustColor(color, -20)})`;
+                    water.style.bottom = `${waterIndex * waterHeight}px`;
+                    
+                    const surface = document.createElement('div');
+                    surface.className = 'water-surface';
+                    water.appendChild(surface);
+                    
+                    tubeElement.appendChild(water);
+                });
+
+                if(selectedTube === index) {
+                    tubeElement.classList.add('selected');
+                }
+
+                if(animateEntry) {
+                    tubeElement.style.animation = `tubeEnter 0.6s ease ${index * 0.05}s forwards`;
+                    tubeElement.querySelectorAll('.water').forEach(water => {
+                        water.classList.add('settling');
+                        setTimeout(() => water.classList.remove('settling'), 800);
+                    });
+                }
+
+                tubeElement.onclick = () => selectTube(index);
+                container.appendChild(tubeElement);
+            });
+
+            checkWin();
+        }
+
+        function adjustColor(color, amount) {
+            let usePound = false;
+            if (color[0] === "#") {
+                color = color.slice(1);
+                usePound = true;
+            }
+            const num = parseInt(color, 16);
+            let r = (num >> 16) + amount;
+            let g = ((num >> 8) & 0x00FF) + amount;
+            let b = (num & 0x0000FF) + amount;
+            r = Math.max(Math.min(255, r), 0);
+            g = Math.max(Math.min(255, g), 0);
+            b = Math.max(Math.min(255, b), 0);
+            const newColor = (r << 16) | (g << 8) | b;
+            return (usePound ? "#" : "") + newColor.toString(16).padStart(6, '0');
+        }
+
+        function selectTube(index) {
+            if(isAnimating) return;
+
+            if(selectedTube === null) {
+                if(tubes[index].length > 0) {
+                    selectedTube = index;
+                    renderGame();
+                }
+            } else {
+                if(canMove(selectedTube, index)) {
+                    animateMove(selectedTube, index, () => {
+                        moveWater(selectedTube, index);
+                        moveCount++;
+                        score += calculateScore();
+                        moveHistory.push({ from: selectedTube, to: index, tubes: JSON.parse(JSON.stringify(tubes)) });
+                        updateStats();
+                        selectedTube = null;
+                        renderGame();
+                        const toTube = document.querySelector(`.tube[data-index="${index}"]`);
+                        toTube.querySelectorAll('.water').forEach(water => {
+                            water.classList.add('settling');
+                            setTimeout(() => water.classList.remove('settling'), 800);
+                        });
+                    });
+                } else {
+                    selectedTube = null;
+                    renderGame();
+                }
+            }
+        }
+
+        function canMove(fromIndex, toIndex) {
+            const fromTube = tubes[fromIndex];
+            const toTube = tubes[toIndex];
+            
+            if(fromIndex === toIndex || fromTube.length === 0) return false;
+            if(toTube.length >= ballsPerTube) return false;
+            
+            if(toTube.length === 0) return true;
+            return toTube[toTube.length - 1] === fromTube[fromTube.length - 1];
+        }
+
+        function moveWater(fromIndex, toIndex) {
+            const water = tubes[fromIndex].pop();
+            tubes[toIndex].push(water);
+        }
+
+        function animateMove(fromIndex, toIndex, callback) {
+            isAnimating = true;
+            const fromTube = document.querySelector(`.tube[data-index="${fromIndex}"]`);
+            const toTube = document.querySelector(`.tube[data-index="${toIndex}"]`);
+            const water = fromTube.lastChild;
+
+            const fromRect = fromTube.getBoundingClientRect();
+            const toRect = toTube.getBoundingClientRect();
+            const waterRect = water.getBoundingClientRect();
+
+            const startX = fromRect.left + fromRect.width / 2 - waterRect.width / 2 - window.scrollX;
+            const startY = fromRect.top + (tubes[fromIndex].length - 1) * waterHeight - window.scrollY;
+            const endX = toRect.left + toRect.width / 2 - waterRect.width / 2 - window.scrollX;
+            const endY = toRect.bottom - ((tubes[toIndex].length + 1) * waterHeight) - waterRect.height - window.scrollY;
+
+            const direction = fromIndex < toIndex ? 1 : -1; // Left or right pour
+            const dropDistance = `${endY - startY}px`;
+
+            water.classList.add('pouring');
+            water.style.position = 'fixed';
+            water.style.left = `${startX}px`;
+            water.style.top = `${startY}px`;
+            water.style.bottom = 'auto';
+            water.style.setProperty('--direction', direction);
+            water.style.setProperty('--drop-distance', dropDistance);
+
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    water.classList.remove('pouring');
+                    water.style.position = 'absolute';
+                    isAnimating = false;
+                    callback();
+                }, 1200); // Match liquidPour duration
+            });
+        }
+
+        function calculateScore() {
+            const baseScore = difficulties[currentDifficulty].colors * 20;
+            return Math.max(baseScore - moveCount * 3, 10);
+        }
+
+        function checkWin() {
+            const messageElement = document.getElementById('message');
+            const isWon = tubes.every(tube => 
+                tube.length === 0 || 
+                (tube.length === ballsPerTube && 
+                 tube.every(water => water === tube[0]))
+            );
+
+            if(isWon) {
+                messageElement.textContent = 'Masterful Victory!';
+                messageElement.classList.add('win');
+                document.querySelectorAll('.tube').forEach(tube => {
+                    tube.onclick = null;
+                });
+                score += difficulties[currentDifficulty].colors * 100;
+                showWinModal();
+                updateStats();
+            } else {
+                messageElement.textContent = '';
+                messageElement.classList.remove('win');
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('moves').textContent = `Moves: ${moveCount}`;
+            document.getElementById('score').textContent = `Score: ${score}`;
+            document.getElementById('difficulty').textContent = `Difficulty: ${currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1)}`;
+            document.getElementById('hints').textContent = `Hints: ${hintsRemaining}`;
+        }
+
+        function undoMove() {
+            if(isAnimating || moveHistory.length === 0) return;
+            const lastMove = moveHistory.pop();
+            tubes = JSON.parse(JSON.stringify(lastMove.tubes));
+            moveCount--;
+            score -= difficulties[currentDifficulty].colors * 10;
+            selectedTube = null;
+            renderGame();
+            updateStats();
+        }
+
+        function resetGame() {
+            if(isAnimating) return;
+            selectedTube = null;
+            const container = document.getElementById('gameContainer');
+            container.style.animation = 'resetFade 0.8s ease';
+            setTimeout(() => {
+                container.style.animation = '';
+                initGame();
+            }, 800);
+        }
+
+        function toggleDifficulty() {
+            if(isAnimating) return;
+            const difficultyKeys = Object.keys(difficulties);
+            const currentIndex = difficultyKeys.indexOf(currentDifficulty);
+            currentDifficulty = difficultyKeys[(currentIndex + 1) % difficultyKeys.length];
+            resetGame();
+        }
+
+        function useHint() {
+            if(isAnimating || hintsRemaining <= 0) return;
+            hintsRemaining--;
+            const hintMove = findHint();
+            if(hintMove) {
+                const { from, to } = hintMove;
+                document.querySelector(`.tube[data-index="${from}"]`).style.borderColor = '#f1c40f';
+                document.querySelector(`.tube[data-index="${to}"]`).style.borderColor = '#f1c40f';
+                setTimeout(() => {
+                    document.querySelector(`.tube[data-index="${from}"]`).style.borderColor = '#2c3e50';
+                    document.querySelector(`.tube[data-index="${to}"]`).style.borderColor = '#2c3e50';
+                    updateStats();
+                }, 2000);
+            }
+        }
+
+        function findHint() {
+            for(let from = 0; from < tubes.length; from++) {
+                if(tubes[from].length === 0) continue;
+                const topColor = tubes[from][tubes[from].length - 1];
+                for(let to = 0; to < tubes.length; to++) {
+                    if(from === to) continue;
+                    if(tubes[to].length < ballsPerTube && (tubes[to].length === 0 || tubes[to][tubes[to].length - 1] === topColor)) {
+                        return { from, to };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function showWinModal() {
+            const overlay = document.getElementById('winOverlay');
+            document.getElementById('winStats').textContent = `Completed in ${moveCount} moves with ${score} points!`;
+            overlay.style.display = 'flex';
+        }
+
+        function hideWinModal() {
+            document.getElementById('winOverlay').style.display = 'none';
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
